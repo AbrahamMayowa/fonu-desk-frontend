@@ -256,3 +256,8 @@ export default function RootLayout({ children }) {
   );
 }
 ```
+
+#### C. Logo & Branding Assets
+Always use the following branding assets for the Fonu Desk logos:
+- **Logo with Text (Project Logo):** `fonu-desk-logo-text.svg` (located inside the `public` directory, reference via `/fonu-desk-logo-text.svg`).
+- **Logo without Text (Icon/Mark Logo):** `fonu-desk-logo.svg` (located inside the `public` directory, reference via `/fonu-desk-logo.svg`).
