@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "accelint-nextjs-best-practices": {
+      "source": "gohypergiant/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/accelint-nextjs-best-practices/SKILL.md",
+      "computedHash": "cf62a8806d0ca8e67c2be330b9b3e3c675ec6c67acc759dd9816d60855e8cc2b"
+    }
+  }
+}
