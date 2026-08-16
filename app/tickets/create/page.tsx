@@ -184,7 +184,6 @@ export default function CreateTicketPage() {
 
     try {
       const payloadAttachments = attachments.length > 0 ? attachments : undefined;
-      const primaryAttachment = attachments.length > 0 ? attachments[0] : undefined;
 
       if (values.onBehalf && values.customerId) {
         // Resolve customer business context mapping
@@ -196,7 +195,6 @@ export default function CreateTicketPage() {
           customerId: values.customerId,
           businessId: selectedMember?.businessId || "",
           attachments: payloadAttachments,
-          attachment: primaryAttachment,
         });
       } else {
         await apiClient.tickets.create({
@@ -204,7 +202,6 @@ export default function CreateTicketPage() {
           description: values.description,
           priority: values.priority,
           attachments: payloadAttachments,
-          attachment: primaryAttachment,
         });
       }
       toast.success("Ticket submitted successfully!");

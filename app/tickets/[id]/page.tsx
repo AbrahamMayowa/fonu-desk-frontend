@@ -2,6 +2,7 @@
 
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useAuth } from "@/context/auth-context";
 import { apiClient, ApiError } from "@/lib/api";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
@@ -102,6 +103,7 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
   const { user, roles, activeOrgId, isLoading: authLoading } = useAuth();
   
   const [loading, setLoading] = useState(true);
+  const [updatingField, setUpdatingField] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Core Data
@@ -206,43 +208,79 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
   }, [ticketId, activeOrgId, authLoading]);
 
   const handleUpdateStatus = async (status: string) => {
+    setUpdatingField("status");
     try {
-      await apiClient.tickets.update(ticketId, { status });
+      const res = await apiClient.tickets.update(ticketId, { status });
+      toast.success(res?.message || `Ticket status updated to ${status}`);
       await loadTicketDetails();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      const apiErr = err as ApiError;
+      const message = Array.isArray(apiErr.message)
+        ? apiErr.message.join(", ")
+        : apiErr.message || "Failed to update ticket status.";
+      toast.error(message);
+    } finally {
+      setUpdatingField(null);
     }
   };
 
   const handleUpdatePriority = async (priority: string) => {
+    setUpdatingField("priority");
     try {
-      await apiClient.tickets.update(ticketId, { priority });
+      const res = await apiClient.tickets.update(ticketId, { priority });
+      toast.success(res?.message || `Ticket priority updated to ${priority}`);
       await loadTicketDetails();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      const apiErr = err as ApiError;
+      const message = Array.isArray(apiErr.message)
+        ? apiErr.message.join(", ")
+        : apiErr.message || "Failed to update ticket priority.";
+      toast.error(message);
+    } finally {
+      setUpdatingField(null);
     }
   };
 
   const handleAssignAgent = async (agentId: string) => {
+    setUpdatingField("assignee");
     try {
-      await apiClient.tickets.assign(ticketId, agentId ? agentId : null);
+      const res = await apiClient.tickets.assign(ticketId, agentId ? agentId : null);
+      toast.success(
+        res?.message ||
+          (agentId ? "Ticket assigned successfully." : "Ticket assignment cleared.")
+      );
       await loadTicketDetails();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      const apiErr = err as ApiError;
+      const message = Array.isArray(apiErr.message)
+        ? apiErr.message.join(", ")
+        : apiErr.message || "Failed to update ticket assignee.";
+      toast.error(message);
+    } finally {
+      setUpdatingField(null);
     }
   };
 
   const handleToggleMute = async () => {
+    setUpdatingField("mute");
     try {
       if (isMuted) {
-        await apiClient.tickets.unmute(ticketId);
+        const res = await apiClient.tickets.unmute(ticketId);
+        toast.success(res?.message || "Ticket notifications unmuted.");
         setIsMuted(false);
       } else {
-        await apiClient.tickets.mute(ticketId);
+        const res = await apiClient.tickets.mute(ticketId);
+        toast.success(res?.message || "Ticket notifications muted.");
         setIsMuted(true);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      const apiErr = err as ApiError;
+      const message = Array.isArray(apiErr.message)
+        ? apiErr.message.join(", ")
+        : apiErr.message || "Failed to update notification settings.";
+      toast.error(message);
+    } finally {
+      setUpdatingField(null);
     }
   };
 
@@ -321,13 +359,19 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
                 {/* Mute Ticket Button */}
                 <button
                   onClick={handleToggleMute}
-                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all focus:outline-none ${
+                  disabled={updatingField === "mute"}
+                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all focus:outline-none disabled:opacity-60 cursor-pointer ${
                     isMuted
                       ? "bg-red-50 border-red-200 text-red-600"
                       : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {isMuted ? (
+                  {updatingField === "mute" ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
+                      Updating...
+                    </>
+                  ) : isMuted ? (
                     <>
                       <BellOff className="h-4 w-4" />
                       Muted
@@ -335,7 +379,7 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
                   ) : (
                     <>
                       <Bell className="h-4 w-4" />
-                      Mute Updates
+                      Mute Notifications
                     </>
                   )}
                 </button>
@@ -546,12 +590,16 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
 
               {/* Status Update */}
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Status
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span>Status</span>
+                  {updatingField === "status" && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" />
+                  )}
                 </label>
                 {isTeamMember ? (
                   <Select
                     value={ticket.status}
+                    disabled={updatingField === "status"}
                     onValueChange={(val) => handleUpdateStatus(val)}
                   >
                     <SelectTrigger className="w-full">
@@ -573,12 +621,16 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
 
               {/* Priority Update */}
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Priority / Severity
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span>Priority / Severity</span>
+                  {updatingField === "priority" && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" />
+                  )}
                 </label>
                 {isTeamMember ? (
                   <Select
                     value={ticket.priority}
+                    disabled={updatingField === "priority"}
                     onValueChange={(val) => handleUpdatePriority(val)}
                   >
                     <SelectTrigger className="w-full">
@@ -601,11 +653,15 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
               {/* Agent Manual Assignment (Owners/Admins) */}
               {isOwnerAdmin && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    Assignee (Agent)
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>Assignee (Agent)</span>
+                    {updatingField === "assignee" && (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" />
+                    )}
                   </label>
                   <Select
                     value={ticket.assignedToId || "UNASSIGNED"}
+                    disabled={updatingField === "assignee"}
                     onValueChange={(val) => handleAssignAgent(val === "UNASSIGNED" ? "" : val)}
                   >
                     <SelectTrigger className="w-full">

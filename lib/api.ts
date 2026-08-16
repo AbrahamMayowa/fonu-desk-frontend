@@ -321,7 +321,6 @@ export const apiClient = {
       priority?: string;
       businessId?: string;
       attachments?: AttachmentItem[];
-      attachment?: AttachmentItem;
     }) {
       return request<any>("/tickets", {
         method: "POST",
@@ -335,7 +334,6 @@ export const apiClient = {
       priority?: string;
       businessId?: string;
       attachments?: AttachmentItem[];
-      attachment?: AttachmentItem;
     }) {
       return request<any>("/tickets/on-behalf", {
         method: "POST",
