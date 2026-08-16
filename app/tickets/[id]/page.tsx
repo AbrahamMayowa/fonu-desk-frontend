@@ -6,6 +6,13 @@ import { useAuth } from "@/context/auth-context";
 import { apiClient, ApiError } from "@/lib/api";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ArrowLeft,
   User,
   Shield,
@@ -21,6 +28,8 @@ import {
   History,
   FileDown,
   Loader2,
+  Paperclip,
+  FileText,
 } from "lucide-react";
 
 const getPriorityBadgeClass = (priority: string) => {
@@ -100,6 +109,7 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [agents, setAgents] = useState<any[]>([]);
   const [isMuted, setIsMuted] = useState(false);
+  const [attachmentsState, setAttachmentsState] = useState<any[]>([]);
 
   // Comment Editor state
   const [newComment, setNewComment] = useState("");
@@ -121,6 +131,16 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
       ]);
 
       setTicket(ticketRes);
+      
+      // Fetch ticket attachments from GET /tickets/:id/attachments
+      try {
+        const attachmentsRes = await apiClient.tickets.attachments(ticketId);
+        if (attachmentsRes && Array.isArray(attachmentsRes) && attachmentsRes.length > 0) {
+          setAttachmentsState(attachmentsRes);
+        }
+      } catch (e) {
+        console.error("Failed to load attachments:", e);
+      }
       
       // Determine if ticket is muted (simulate check from ticket properties or local flag)
       setIsMuted(ticketRes.isMuted || false);
@@ -283,7 +303,7 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
           {/* Timeline Feed & Comments */}
           <div className="lg:col-span-2 space-y-6">
             {/* Ticket Header & Description */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+            <div className="bg-white rounded-2xl p-6 sm:p-8">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-100 pb-6 mb-6">
                 <div>
                   <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight">
@@ -301,7 +321,7 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
                 {/* Mute Ticket Button */}
                 <button
                   onClick={handleToggleMute}
-                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold shadow-sm transition-all focus:outline-none ${
+                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all focus:outline-none ${
                     isMuted
                       ? "bg-red-50 border-red-200 text-red-600"
                       : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -326,34 +346,66 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
               </div>
 
               {/* Attachments preview */}
-              {ticket.attachment && (
-                <div className="mt-6 border-t border-slate-100 pt-6">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                    Attachments
-                  </p>
-                  <div className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3 max-w-sm">
-                    <img
-                      src={ticket.attachment.fileUrl}
-                      alt="Ticket Attachment"
-                      className="h-10 w-10 shrink-0 rounded object-cover border border-slate-200"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-slate-800">
-                        {ticket.attachment.fileName}
-                      </p>
-                      <a
-                        href={ticket.attachment.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[10px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 mt-0.5"
-                      >
-                        <FileDown className="h-3.5 w-3.5" />
-                        Download
-                      </a>
+              {(() => {
+                const attachmentList: Array<{ id?: string; fileName: string; fileUrl: string; fileType?: string }> =
+                  attachmentsState.length > 0
+                    ? attachmentsState
+                    : ticket.attachments && ticket.attachments.length > 0
+                    ? ticket.attachments
+                    : ticket.attachment
+                    ? [ticket.attachment]
+                    : [];
+
+                if (attachmentList.length === 0) return null;
+
+                return (
+                  <div className="mt-6 border-t border-slate-100 pt-6">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                      <Paperclip className="h-4 w-4 text-slate-400" />
+                      Attachments ({attachmentList.length})
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {attachmentList.map((att, idx) => {
+                        const isImage =
+                          (att.fileType && att.fileType.startsWith("image/")) ||
+                          /\.(png|jpe?g|gif|webp)$/i.test(att.fileName);
+                        return (
+                          <div
+                            key={att.id || idx}
+                            className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition-colors hover:border-slate-300"
+                          >
+                            {isImage ? (
+                              <img
+                                src={att.fileUrl}
+                                alt={att.fileName}
+                                className="h-10 w-10 shrink-0 rounded-lg object-cover border border-slate-200"
+                              />
+                            ) : (
+                              <div className="h-10 w-10 shrink-0 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500">
+                                <FileText className="h-5 w-5" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-semibold text-slate-800">
+                                {att.fileName}
+                              </p>
+                              <a
+                                href={att.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[10px] font-bold text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 mt-0.5"
+                              >
+                                <FileDown className="h-3.5 w-3.5" />
+                                Download / View
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Chronological Timeline */}
@@ -367,13 +419,13 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
                 {timeline.map((item) => {
                   if (item.type === "comment") {
                     const c = item.data;
-                    const isAuthorTeam = c.author?.email.includes("@company") || c.isInternal;
+                    const isAuthorTeam = Boolean(c.author?.email && c.author.email.includes("@company")) || c.isInternal;
                     return (
                       <div
                         key={c.id}
-                        className={`relative rounded-xl border p-4 shadow-sm text-sm ${
+                        className={`relative rounded-xl border p-4 text-sm ${
                           c.isInternal
-                            ? "bg-amber-50/60 border-amber-200 text-slate-700 shadow-amber-50/20"
+                            ? "bg-amber-50/60 border-amber-200 text-slate-700"
                             : "bg-white border-slate-200 text-slate-600"
                         }`}
                       >
@@ -383,7 +435,9 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
                         <div className="flex items-center justify-between border-b border-slate-100/80 pb-2 mb-2">
                           <div className="flex items-center gap-1.5">
                             <span className="font-bold text-slate-800">
-                              {c.author?.firstName} {c.author?.lastName}
+                              {c.author
+                                ? `${c.author.firstName || ""} ${c.author.lastName || ""}`.trim() || c.author.email || "User"
+                                : "User"}
                             </span>
                             {c.isInternal && (
                               <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
@@ -431,7 +485,7 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
             </div>
 
             {/* Comment timeline reply editor */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <div className="bg-white rounded-2xl p-6">
               <form onSubmit={handleSubmitComment} className="space-y-4">
                 <textarea
                   rows={4}
@@ -485,7 +539,7 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
 
           {/* Ticket Metadata Sidebar */}
           <div className="space-y-6">
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+            <div className="bg-white rounded-2xl p-6 space-y-6">
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-3">
                 Ticket Properties
               </h3>
@@ -496,16 +550,20 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
                   Status
                 </label>
                 {isTeamMember ? (
-                  <select
+                  <Select
                     value={ticket.status}
-                    onChange={(e) => handleUpdateStatus(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none bg-white font-semibold text-slate-700 focus:border-brand-500 transition-colors"
+                    onValueChange={(val) => handleUpdateStatus(val)}
                   >
-                    <option value="OPEN">OPEN</option>
-                    <option value="IN_PROGRESS">IN PROGRESS</option>
-                    <option value="RESOLVED">RESOLVED</option>
-                    <option value="CLOSED">CLOSED</option>
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="OPEN">OPEN</SelectItem>
+                      <SelectItem value="IN_PROGRESS">IN PROGRESS</SelectItem>
+                      <SelectItem value="RESOLVED">RESOLVED</SelectItem>
+                      <SelectItem value="CLOSED">CLOSED</SelectItem>
+                    </SelectContent>
+                  </Select>
                 ) : (
                   <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(ticket.status)}`}>
                     {ticket.status}
@@ -519,16 +577,20 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
                   Priority / Severity
                 </label>
                 {isTeamMember ? (
-                  <select
+                  <Select
                     value={ticket.priority}
-                    onChange={(e) => handleUpdatePriority(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none bg-white font-semibold text-slate-700 focus:border-brand-500 transition-colors"
+                    onValueChange={(val) => handleUpdatePriority(val)}
                   >
-                    <option value="LOW">LOW</option>
-                    <option value="MEDIUM">MEDIUM</option>
-                    <option value="HIGH">HIGH</option>
-                    <option value="URGENT">URGENT</option>
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LOW">LOW</SelectItem>
+                      <SelectItem value="MEDIUM">MEDIUM</SelectItem>
+                      <SelectItem value="HIGH">HIGH</SelectItem>
+                      <SelectItem value="URGENT">URGENT</SelectItem>
+                    </SelectContent>
+                  </Select>
                 ) : (
                   <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getPriorityBadgeClass(ticket.priority)}`}>
                     {ticket.priority}
@@ -542,18 +604,22 @@ export default function TicketDetailsPage({ params }: PageProps<"/tickets/[id]">
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                     Assignee (Agent)
                   </label>
-                  <select
-                    value={ticket.assignedToId || ""}
-                    onChange={(e) => handleAssignAgent(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none bg-white font-semibold text-slate-700 focus:border-brand-500 transition-colors"
+                  <Select
+                    value={ticket.assignedToId || "UNASSIGNED"}
+                    onValueChange={(val) => handleAssignAgent(val === "UNASSIGNED" ? "" : val)}
                   >
-                    <option value="">-- Unassigned --</option>
-                    {agents.map((ag) => (
-                      <option key={ag.userId} value={ag.userId}>
-                        {ag.user?.firstName} {ag.user?.lastName} ({ag.role?.name})
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="-- Unassigned --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UNASSIGNED">-- Unassigned --</SelectItem>
+                      {agents.map((ag) => (
+                        <SelectItem key={ag.userId} value={ag.userId}>
+                          {ag.user?.firstName} {ag.user?.lastName} ({ag.role?.name})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 

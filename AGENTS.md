@@ -23,4 +23,6 @@ All coding tasks in this repository must follow these rules. Please review them 
    - **Loading States:** Use React Suspense and custom skeleton components for layout page-loading transitions.
    - **Secure Coding Practices:** Handle tokens securely and enforce role-based routes (RBAC).
    - **Implicit Tenant Scoping:** Never pass tenant/org IDs in the request body for ticket actions; resolve them via JWT context on the backend.
+   - **Signup & Verification Flow:** `POST /auth/signup` receives `{ firstName, lastName, email }`. `POST /auth/verify-email` receives `{ email, code, password }`. Do not display an email input field on the verification form UI (retrieve from session state).
+   - **Card Aesthetics (No AI Slop):** Do NOT use heavy borders (`border border-slate-200`) or card shadows (`shadow-sm`, `shadow-md`, etc.) on card containers. Keep cards flat, clean, and borderless/shadowless.
 5. **Runtime Loop:** Verify your changes at runtime using `next dev`, paying attention to the terminal logs and using error overlays to copy debug prompts.

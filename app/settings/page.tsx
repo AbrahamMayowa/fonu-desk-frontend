@@ -1,9 +1,17 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useAuth } from "@/context/auth-context";
-import { apiClient, ApiError } from "@/lib/api";
+import { apiClient, ApiError, Role } from "@/lib/api";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Settings,
   Users,
@@ -17,6 +25,7 @@ import {
   UserCheck,
   ShieldCheck,
   Mail,
+  MailCheck,
   ToggleLeft,
   ToggleRight,
   Plus,
@@ -28,30 +37,47 @@ interface Member {
   userId: string;
   organizationId: string;
   roleId: string;
-  businessId: string | null;
-  isActive: boolean;
+  businessId?: string | null;
+  isActive?: boolean;
+  joinedAt?: string;
   user?: {
     id: string;
+    email: string;
     firstName: string;
     lastName: string;
-    email: string;
   };
   role?: {
     id: string;
     name: string;
-    description: string;
   };
 }
+
+const INDUSTRIES = [
+  "Software & Technology",
+  "Financial Services & Fintech",
+  "Healthcare & Life Sciences",
+  "E-Commerce & Retail",
+  "Education & EdTech",
+  "Manufacturing & Supply Chain",
+  "Professional & Legal Services",
+  "Real Estate & Construction",
+  "Media & Entertainment",
+  "Hospitality & Tourism",
+  "Energy & Sustainability",
+  "Telecommunications",
+  "Non-Profit & Government",
+  "Marketing & Advertising",
+  "Consulting",
+  "Automotive & Transportation",
+  "Other",
+];
 
 export default function SettingsPage() {
   const { user, activeOrg, activeOrgId, refreshOrgs, setOrg, roles, isLoading: authLoading } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<"org" | "team" | "invite">("org");
+  const [activeTab, setActiveTab] = useState<"org" | "team" | "invite" | "invitations">("org");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Form states for Org Settings
   const [orgName, setOrgName] = useState("");
@@ -60,10 +86,11 @@ export default function SettingsPage() {
   // Team states
   const [members, setMembers] = useState<Member[]>([]);
   const [roleMap, setRoleMap] = useState<{ [name: string]: string }>({});
+  const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
 
   // Invite states
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("SUPPORT");
+  const [inviteRoleId, setInviteRoleId] = useState("");
   const [inviteBusinessId, setInviteBusinessId] = useState("");
 
   // Businesses states
@@ -116,16 +143,17 @@ export default function SettingsPage() {
 
   const handleCreateBusinessSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newBusinessName) return;
+    if (!newBusinessName || !newBusinessIndustry) {
+      toast.error("Both business name and industry are required.");
+      return;
+    }
     setBusinessActionLoading(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
     try {
       const response = await apiClient.businesses.create({
         name: newBusinessName,
-        industry: newBusinessIndustry || undefined,
+        industry: newBusinessIndustry,
       });
-      setSuccessMsg(`Business "${newBusinessName}" created successfully!`);
+      toast.success(`Business "${newBusinessName}" created successfully!`);
       setNewBusinessName("");
       setNewBusinessIndustry("");
       setIsCreatingBusiness(false);
@@ -143,7 +171,7 @@ export default function SettingsPage() {
       }
     } catch (err: any) {
       const apiErr = err as ApiError;
-      setErrorMsg(apiErr.message?.toString() || "Failed to create business.");
+      toast.error(apiErr.message?.toString() || "Failed to create business.");
     } finally {
       setBusinessActionLoading(false);
     }
@@ -151,21 +179,22 @@ export default function SettingsPage() {
 
   const handleResendInvite = async (invitationId: string) => {
     setActionLoading(invitationId);
-    setErrorMsg(null);
-    setSuccessMsg(null);
     try {
       await apiClient.users.resendInvite(invitationId);
-      setSuccessMsg("Invitation resent successfully!");
+      toast.success("Invitation resent successfully!");
       await loadInvitations();
     } catch (err: any) {
       const apiErr = err as ApiError;
-      setErrorMsg(apiErr.message?.toString() || "Failed to resend invitation.");
+      toast.error(apiErr.message?.toString() || "Failed to resend invitation.");
     } finally {
       setActionLoading(null);
     }
   };
 
-  const getRoleName = (roleId: string) => {
+  const getRoleName = (roleId: string, roleObj?: { name: string }) => {
+    if (roleObj?.name) return roleObj.name;
+    const match = availableRoles.find((r) => r.id === roleId);
+    if (match) return match.name;
     const entry = Object.entries(roleMap).find(([name, id]) => id === roleId);
     return entry ? entry[0] : "UNKNOWN";
   };
@@ -179,11 +208,22 @@ export default function SettingsPage() {
   const loadSettingsData = async () => {
     if (!activeOrgId) return;
     setLoading(true);
-    setErrorMsg(null);
     try {
       if (activeOrg) {
         setOrgName(activeOrg.name);
         setAssignMethod(activeOrg.ticketAssignMethod);
+      }
+
+      // Fetch dynamic role list from GET /users/roles
+      try {
+        const rolesList = await apiClient.users.roles();
+        setAvailableRoles(rolesList || []);
+        if (rolesList && rolesList.length > 0) {
+          const defaultRole = rolesList.find((r) => r.name === "SUPPORT") || rolesList[0];
+          setInviteRoleId((prev) => prev || defaultRole.id);
+        }
+      } catch (err) {
+        console.error("Failed to load roles:", err);
       }
 
       if (isOwnerAdmin) {
@@ -201,7 +241,7 @@ export default function SettingsPage() {
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg("Failed to load workspace settings.");
+      toast.error("Failed to load workspace settings.");
     } finally {
       setLoading(false);
     }
@@ -231,25 +271,21 @@ export default function SettingsPage() {
     e.preventDefault();
     if (!activeOrgId) return;
     setActionLoading("org");
-    setErrorMsg(null);
-    setSuccessMsg(null);
 
     try {
       // Save assignment method
-      const updatedOrg = await apiClient.organizations.updateTicketAssignment(activeOrgId, assignMethod);
+      await apiClient.organizations.updateTicketAssignment(activeOrgId, assignMethod);
       
-      // If org name is changed (requires backend endpoint or updates active context)
-      // For now, save ticket assign method
       if (activeOrg) {
         const newOrg = { ...activeOrg, ticketAssignMethod: assignMethod };
         setOrg(newOrg);
       }
       
       await refreshOrgs();
-      setSuccessMsg("Organization settings updated successfully!");
+      toast.success("Organization settings updated successfully!");
     } catch (err: any) {
       const apiErr = err as ApiError;
-      setErrorMsg(apiErr.message?.toString() || "Failed to update organization settings.");
+      toast.error(apiErr.message?.toString() || "Failed to update organization settings.");
     } finally {
       setActionLoading(null);
     }
@@ -258,19 +294,17 @@ export default function SettingsPage() {
   // Handle Member deactivation/activation
   const handleToggleStatus = async (memberId: string, userId: string, currentActive: boolean) => {
     setActionLoading(memberId);
-    setErrorMsg(null);
-    setSuccessMsg(null);
     try {
       if (currentActive) {
         await apiClient.users.deactivate(userId);
-        setSuccessMsg("Team member deactivated successfully.");
+        toast.success("Team member deactivated successfully.");
       } else {
         await apiClient.users.activate(userId);
-        setSuccessMsg("Team member activated successfully.");
+        toast.success("Team member activated successfully.");
       }
       await loadSettingsData();
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to toggle member status.");
+      toast.error(err.message || "Failed to toggle member status.");
     } finally {
       setActionLoading(null);
     }
@@ -278,14 +312,12 @@ export default function SettingsPage() {
 
   // Handle Member role update
   const handleRoleChange = async (userId: string, newRoleId: string) => {
-    setErrorMsg(null);
-    setSuccessMsg(null);
     try {
       await apiClient.users.updateRole(userId, newRoleId);
-      setSuccessMsg("Role updated successfully!");
+      toast.success("Role updated successfully!");
       await loadSettingsData();
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to update member role.");
+      toast.error(err.message || "Failed to update member role.");
     }
   };
 
@@ -293,14 +325,12 @@ export default function SettingsPage() {
   const handleRemoveMember = async (memberId: string, userId: string) => {
     if (!confirm("Are you sure you want to remove this user from the organization?")) return;
     setActionLoading(memberId);
-    setErrorMsg(null);
-    setSuccessMsg(null);
     try {
       await apiClient.users.delete(userId);
-      setSuccessMsg("User removed from organization successfully.");
+      toast.success("User removed from organization successfully.");
       await loadSettingsData();
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to remove member.");
+      toast.error(err.message || "Failed to remove member.");
     } finally {
       setActionLoading(null);
     }
@@ -309,22 +339,13 @@ export default function SettingsPage() {
   // Handle Invite Dispatch
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail) return;
+    if (!inviteEmail || !inviteRoleId) return;
 
     setActionLoading("invite");
-    setErrorMsg(null);
-    setSuccessMsg(null);
 
-    // Resolve role ID based on the selection
-    const targetRoleId = roleMap[inviteRole];
-    if (!targetRoleId) {
-      setErrorMsg(`Could not resolve role ID for ${inviteRole}. Make sure a member exists with this role.`);
-      setActionLoading(null);
-      return;
-    }
-
-    if (inviteRole === "CUSTOMER" && !inviteBusinessId) {
-      setErrorMsg("When inviting a customer, you must select a business.");
+    const selectedRole = availableRoles.find((r) => r.id === inviteRoleId);
+    if (selectedRole?.name === "CUSTOMER" && !inviteBusinessId) {
+      toast.error("When inviting a customer, you must select a business.");
       setActionLoading(null);
       return;
     }
@@ -332,17 +353,26 @@ export default function SettingsPage() {
     try {
       await apiClient.users.invite({
         email: inviteEmail,
-        roleId: targetRoleId,
+        roleId: inviteRoleId,
         businessId: inviteBusinessId || undefined,
       });
 
-      setSuccessMsg(`Invitation dispatched to ${inviteEmail}!`);
+      toast.success(`Invitation dispatched to ${inviteEmail}!`);
+      // Reset all form inputs after successful invite
       setInviteEmail("");
+      const defaultRole = availableRoles.find((r) => r.name === "SUPPORT") || availableRoles[0];
+      if (defaultRole) {
+        setInviteRoleId(defaultRole.id);
+      }
       setInviteBusinessId("");
+      setIsCreatingBusiness(false);
+      setNewBusinessName("");
+      setNewBusinessIndustry("");
+
       await loadInvitations();
     } catch (err: any) {
       const apiErr = err as ApiError;
-      setErrorMsg(apiErr.message?.toString() || "Failed to send invitation.");
+      toast.error(apiErr.message?.toString() || "Failed to send invitation.");
     } finally {
       setActionLoading(null);
     }
@@ -359,7 +389,7 @@ export default function SettingsPage() {
   if (!isOwnerAdmin) {
     return (
       <DashboardShell>
-        <div className="flex flex-col items-center justify-center py-20 text-center px-4 bg-white border border-slate-200 rounded-2xl shadow-sm">
+        <div className="flex flex-col items-center justify-center py-20 text-center px-4 bg-white border border-slate-200 rounded-2xl">
           <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
           <h1 className="text-xl font-bold text-slate-800">Access Denied</h1>
           <p className="text-slate-500 text-sm mt-1 max-w-sm">
@@ -379,27 +409,14 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {successMsg && (
-        <div className="mb-6 rounded-lg bg-green-50 p-4 border border-green-200 flex gap-2">
-          <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
-          <p className="text-sm font-medium text-green-700">{successMsg}</p>
-        </div>
-      )}
-
-      {errorMsg && (
-        <div className="mb-6 rounded-lg bg-red-50 p-4 border border-red-200 flex gap-2">
-          <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
-          <p className="text-sm font-medium text-red-700">{errorMsg}</p>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
         {/* Navigation Sidebar Tabs */}
         <div className="space-y-1">
           {[
             { id: "org", name: "Workspace Rules", icon: Building },
             { id: "team", name: "Manage Team Members", icon: Users },
-            { id: "invite", name: "Invite Teammates", icon: UserPlus },
+            { id: "invite", name: "Invite User", icon: UserPlus },
+            { id: "invitations", name: "Sent Invitations", icon: MailCheck },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -408,12 +425,10 @@ export default function SettingsPage() {
                 key={tab.id}
                 onClick={() => {
                   setActiveTab(tab.id as any);
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
                 }}
                 className={`flex w-full items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
                   isActive
-                    ? "bg-brand-600 text-white shadow-md shadow-brand-600/10"
+                    ? "bg-brand-600 text-white"
                     : "text-slate-600 hover:bg-white hover:text-slate-900 border border-transparent hover:border-slate-200"
                 }`}
               >
@@ -427,11 +442,11 @@ export default function SettingsPage() {
         {/* Configurations Area */}
         <div className="lg:col-span-3">
           {loading ? (
-            <div className="flex justify-center py-20 bg-white border border-slate-200 rounded-2xl shadow-sm">
+            <div className="flex justify-center py-20 bg-white rounded-2xl">
               <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
             </div>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+            <div className="bg-white rounded-2xl p-6 sm:p-8">
               {/* Tab 1: Org Settings */}
               {activeTab === "org" && (
                 <div className="space-y-6">
@@ -467,7 +482,7 @@ export default function SettingsPage() {
                             onClick={() => setAssignMethod("MANUAL")}
                             className={`flex-1 flex items-center justify-between rounded-lg border p-4 text-left transition-all ${
                               assignMethod === "MANUAL"
-                                ? "bg-white border-brand-500 text-brand-700 ring-1 ring-brand-500 shadow-sm"
+                                ? "bg-white border-brand-500 text-brand-700 ring-1 ring-brand-500"
                                 : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"
                             }`}
                           >
@@ -487,7 +502,7 @@ export default function SettingsPage() {
                             onClick={() => setAssignMethod("AUTO")}
                             className={`flex-1 flex items-center justify-between rounded-lg border p-4 text-left transition-all ${
                               assignMethod === "AUTO"
-                                ? "bg-white border-brand-500 text-brand-700 ring-1 ring-brand-500 shadow-sm"
+                                ? "bg-white border-brand-500 text-brand-700 ring-1 ring-brand-500"
                                 : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"
                             }`}
                           >
@@ -527,10 +542,10 @@ export default function SettingsPage() {
                     View active memberships, update role scopes, or deactivate accounts.
                   </p>
 
-                  <div className="overflow-x-auto mt-6">
-                    <table className="w-full text-left text-sm border-collapse">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 mt-6 shadow-xs">
+                    <table className="w-full min-w-[640px] text-left text-sm border-collapse">
                       <thead>
-                        <tr className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200">
+                        <tr className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 whitespace-nowrap">
                           <th className="px-4 py-3">Member</th>
                           <th className="px-4 py-3">Role</th>
                           <th className="px-4 py-3">Status</th>
@@ -544,7 +559,7 @@ export default function SettingsPage() {
                           const isPendingToggle = actionLoading === m.id;
 
                           return (
-                            <tr key={m.id} className="hover:bg-slate-50/50">
+                            <tr key={m.id} className="hover:bg-slate-50/50 whitespace-nowrap">
                               <td className="px-4 py-3.5">
                                 <p className="font-semibold text-slate-800">
                                   {m.user?.firstName} {m.user?.lastName}
@@ -553,24 +568,10 @@ export default function SettingsPage() {
                               </td>
 
                               <td className="px-4 py-3.5">
-                                {isSelf || isOrgOwner || !isOwner ? (
-                                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                    <ShieldCheck className="h-4 w-4 text-slate-400" />
-                                    {m.role?.name}
-                                  </span>
-                                ) : (
-                                  <select
-                                    value={m.roleId}
-                                    onChange={(e) => handleRoleChange(m.userId, e.target.value)}
-                                    className="rounded border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 outline-none bg-white focus:border-brand-500"
-                                  >
-                                    {Object.entries(roleMap).map(([name, id]) => (
-                                      <option key={id} value={id}>
-                                        {name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                )}
+                                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                  <ShieldCheck className="h-4 w-4 text-slate-400 shrink-0" />
+                                  {m.role?.name || getRoleName(m.roleId)}
+                                </span>
                               </td>
 
                               <td className="px-4 py-3.5">
@@ -589,7 +590,7 @@ export default function SettingsPage() {
                                 {/* Toggle Deactivation */}
                                 {!isSelf && !isOrgOwner && (
                                   <button
-                                    onClick={() => handleToggleStatus(m.id, m.userId, m.isActive)}
+                                    onClick={() => handleToggleStatus(m.id, m.userId, !!m.isActive)}
                                     disabled={isPendingToggle}
                                     className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
                                       m.isActive
@@ -636,9 +637,9 @@ export default function SettingsPage() {
               {/* Tab 3: Invite User */}
               {activeTab === "invite" && (
                 <div className="space-y-6">
-                  <h2 className="text-xl font-bold text-slate-800">Invite a Member</h2>
+                  <h2 className="text-xl font-bold text-slate-800">Invite User to Workspace</h2>
                   <p className="text-slate-500 text-xs">
-                    Send an onboarding email link to coworkers or customer users.
+                    Send an onboarding invitation link to a new Team Member (Support Agent) or Customer.
                   </p>
 
                   <form onSubmit={handleInviteSubmit} className="space-y-5 max-w-md mt-6">
@@ -665,23 +666,30 @@ export default function SettingsPage() {
                       <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                         Role Assignment
                       </label>
-                      <select
-                        value={inviteRole}
-                        onChange={(e) => {
-                          setInviteRole(e.target.value);
-                          if (e.target.value !== "CUSTOMER") {
+                      <Select
+                        value={inviteRoleId}
+                        onValueChange={(val) => {
+                          setInviteRoleId(val);
+                          const selectedRole = availableRoles.find((r) => r.id === val);
+                          if (selectedRole?.name !== "CUSTOMER") {
                             setInviteBusinessId("");
                           }
                         }}
-                        className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none bg-white font-semibold text-slate-700 focus:border-brand-500 transition-colors"
                       >
-                        <option value="ADMIN">ADMIN (Workspace Co-Admin)</option>
-                        <option value="SUPPORT">SUPPORT (Support Agent)</option>
-                        <option value="CUSTOMER">CUSTOMER (Client / End User)</option>
-                      </select>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a Role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableRoles.map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name} {role.description ? `(${role.description})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
-                    {inviteRole === "CUSTOMER" && (
+                    {availableRoles.find((r) => r.id === inviteRoleId)?.name === "CUSTOMER" && (
                       <div className="space-y-2">
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
                           B2B Business Context (Required)
@@ -693,19 +701,21 @@ export default function SettingsPage() {
                           </div>
                         ) : (
                           <>
-                            <select
+                            <Select
                               value={inviteBusinessId}
-                              required
-                              onChange={(e) => setInviteBusinessId(e.target.value)}
-                              className="block w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none bg-white font-semibold text-slate-700 focus:border-brand-500 transition-colors"
+                              onValueChange={(val) => setInviteBusinessId(val)}
                             >
-                              <option value="">Select a Business</option>
-                              {businesses.map((b) => (
-                                <option key={b.id} value={b.id}>
-                                  {b.name} {b.industry ? `(${b.industry})` : ""}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select a Business" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {businesses.map((b) => (
+                                  <SelectItem key={b.id} value={b.id}>
+                                    {b.name} {b.industry ? `(${b.industry})` : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
 
                             <div className="flex justify-between items-center mt-1">
                               <button
@@ -739,20 +749,28 @@ export default function SettingsPage() {
                                       placeholder="e.g. Acme Inc."
                                       value={newBusinessName}
                                       onChange={(e) => setNewBusinessName(e.target.value)}
-                                      className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand-500 transition-colors"
+                                      className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-brand-500 transition-colors"
                                     />
                                   </div>
                                   <div>
                                     <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                                      Industry (Optional)
+                                      Industry <span className="text-red-500">*</span>
                                     </label>
-                                    <input
-                                      type="text"
-                                      placeholder="e.g. Technology"
+                                    <Select
                                       value={newBusinessIndustry}
-                                      onChange={(e) => setNewBusinessIndustry(e.target.value)}
-                                      className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-brand-500 transition-colors"
-                                    />
+                                      onValueChange={(val) => setNewBusinessIndustry(val)}
+                                    >
+                                      <SelectTrigger className="h-9 w-full bg-white text-xs font-semibold border-slate-200">
+                                        <SelectValue placeholder="Select Industry" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {INDUSTRIES.map((ind) => (
+                                          <SelectItem key={ind} value={ind}>
+                                            {ind}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                 </div>
                                 <div className="flex justify-end gap-2 mt-2">
@@ -769,7 +787,7 @@ export default function SettingsPage() {
                                   </button>
                                   <button
                                     type="button"
-                                    disabled={businessActionLoading || !newBusinessName}
+                                    disabled={businessActionLoading || !newBusinessName || !newBusinessIndustry}
                                     onClick={handleCreateBusinessSubmit}
                                     className="px-3 py-1.5 rounded-lg bg-brand-600 text-xs font-bold text-white hover:bg-brand-700 transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
                                   >
@@ -802,13 +820,28 @@ export default function SettingsPage() {
                       )}
                     </button>
                   </form>
+                </div>
+              )}
 
-                  {/* Pending Invitations Section */}
-                  <div className="pt-8 border-t border-slate-100">
-                    <h3 className="text-lg font-bold text-slate-800">Pending & Sent Invitations</h3>
-                    <p className="text-slate-500 text-xs mt-1">
-                      Track and resend onboarding links dispatched to your workspace members.
-                    </p>
+              {/* Tab 4: Pending & Sent Invitations */}
+              {activeTab === "invitations" && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">Pending & Sent Invitations</h2>
+                      <p className="text-slate-500 text-xs mt-1">
+                        Track and resend onboarding links dispatched to your workspace members and customers.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={loadInvitations}
+                      className="text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 px-3 py-2 rounded-lg border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${loadingInvitations ? "animate-spin" : ""}`} />
+                      Refresh
+                    </button>
+                  </div>
 
                     {loadingInvitations ? (
                       <div className="flex justify-center py-8">
@@ -820,10 +853,10 @@ export default function SettingsPage() {
                       </div>
                     ) : (
                       <div className="mt-4 space-y-4">
-                        <div className="overflow-x-auto rounded-xl border border-slate-200">
-                          <table className="w-full text-left text-sm border-collapse">
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-xs">
+                          <table className="w-full min-w-[640px] text-left text-sm border-collapse">
                             <thead>
-                              <tr className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200">
+                              <tr className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 whitespace-nowrap">
                                 <th className="px-4 py-3">Invitee Email</th>
                                 <th className="px-4 py-3">Role</th>
                                 <th className="px-4 py-3">Business Scope</th>
@@ -836,13 +869,13 @@ export default function SettingsPage() {
                                 const isPendingResend = actionLoading === inv.id;
                                 const isAccepted = inv.status === "ACCEPTED";
                                 return (
-                                  <tr key={inv.id} className="hover:bg-slate-50/50">
+                                  <tr key={inv.id} className="hover:bg-slate-50/50 whitespace-nowrap">
                                     <td className="px-4 py-3.5 font-medium text-slate-800">
                                       {inv.email}
                                     </td>
                                     <td className="px-4 py-3.5">
                                       <span className="text-xs font-semibold text-slate-600">
-                                        {getRoleName(inv.roleId)}
+                                        {inv.role?.name || getRoleName(inv.roleId, inv.role)}
                                       </span>
                                     </td>
                                     <td className="px-4 py-3.5 text-xs text-slate-500">
@@ -915,7 +948,6 @@ export default function SettingsPage() {
                         )}
                       </div>
                     )}
-                  </div>
                 </div>
               )}
             </div>

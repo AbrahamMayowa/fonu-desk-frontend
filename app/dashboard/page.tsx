@@ -173,14 +173,14 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">
+          <span className="text-xs text-slate-400 bg-white border border-slate-200 px-3 py-1.5 rounded-lg">
             Cached for 3 mins • Last sync:{" "}
             {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
           <button
             onClick={handleManualRefresh}
             disabled={loading}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm transition-colors focus:outline-none"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
@@ -217,7 +217,7 @@ export default function DashboardPage() {
                 ].map((stat) => {
                   const Icon = stat.icon;
                   return (
-                    <div key={stat.name} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div key={stat.name} className="rounded-xl bg-white p-5">
                       <div className="flex items-center gap-3">
                         <div className={`rounded-lg p-2 ${stat.color}`}>
                           <Icon className="h-5 w-5" />
@@ -233,7 +233,7 @@ export default function DashboardPage() {
               {/* Grid lists */}
               <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
                 {/* Recent Tickets Table */}
-                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-xl bg-white p-6">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
                     <h2 className="text-lg font-bold text-slate-800">Recent Support Requests</h2>
                     <Link href="/tickets" className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1">
@@ -249,39 +249,36 @@ export default function DashboardPage() {
                           <th className="py-2.5">Title</th>
                           <th className="py-2.5">Priority</th>
                           <th className="py-2.5">Status</th>
-                          <th className="py-2.5 text-right">Details</th>
+                          <th className="py-2.5 text-right">Created</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 text-slate-600">
+                      <tbody className="divide-y divide-slate-100">
                         {adminTickets.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="py-8 text-center text-slate-400">
-                              No tickets submitted yet.
+                            <td colSpan={4} className="py-8 text-center text-xs text-slate-400">
+                              No tickets recorded in system.
                             </td>
                           </tr>
                         ) : (
-                          adminTickets.map((ticket) => (
-                            <tr key={ticket.id} className="hover:bg-slate-50/50">
-                              <td className="py-3 font-semibold text-slate-800 truncate max-w-[200px]">
-                                {ticket.title}
-                              </td>
-                              <td className="py-3">
-                                <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold leading-5 ${getPriorityBadgeClass(ticket.priority)}`}>
-                                  {ticket.priority}
-                                </span>
-                              </td>
-                              <td className="py-3">
-                                <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold leading-5 ${getStatusBadgeClass(ticket.status)}`}>
-                                  {ticket.status}
-                                </span>
-                              </td>
-                              <td className="py-3 text-right">
-                                <Link
-                                  href={`/tickets/${ticket.id}`}
-                                  className="text-xs font-semibold text-brand-600 hover:text-brand-700"
-                                >
-                                  View
+                          adminTickets.map((t) => (
+                            <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-3 font-semibold text-slate-800 truncate max-w-[180px]">
+                                <Link href={`/tickets/${t.id}`} className="hover:text-brand-600">
+                                  {t.title}
                                 </Link>
+                              </td>
+                              <td className="py-3">
+                                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${getPriorityBadgeClass(t.priority)}`}>
+                                  {t.priority}
+                                </span>
+                              </td>
+                              <td className="py-3">
+                                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${getStatusBadgeClass(t.status)}`}>
+                                  {t.status}
+                                </span>
+                              </td>
+                              <td className="py-3 text-right text-xs text-slate-400">
+                                {new Date(t.createdAt).toLocaleDateString()}
                               </td>
                             </tr>
                           ))
@@ -292,7 +289,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* System Audit logs */}
-                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-xl bg-white p-6">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
                     <h2 className="text-lg font-bold text-slate-800">Organization Audit Trail</h2>
                     <span className="flex items-center gap-1 text-xs text-slate-400 font-medium">
@@ -347,7 +344,7 @@ export default function DashboardPage() {
                 ].map((stat) => {
                   const Icon = stat.icon;
                   return (
-                    <div key={stat.name} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div key={stat.name} className="rounded-xl bg-white p-5">
                       <div className="flex items-center gap-3">
                         <div className={`rounded-lg p-2 ${stat.color}`}>
                           <Icon className="h-5 w-5" />
@@ -363,7 +360,7 @@ export default function DashboardPage() {
               {/* Queues */}
               <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
                 {/* My Tickets */}
-                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-xl bg-white p-6">
                   <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-4 mb-4">
                     My Active Queue (Top 5)
                   </h2>
@@ -403,7 +400,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Unassigned Pool */}
-                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-xl bg-white p-6">
                   <h2 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-4 mb-4">
                     Unassigned Pool (Top 5)
                   </h2>
@@ -457,7 +454,7 @@ export default function DashboardPage() {
                 ].map((stat) => {
                   const Icon = stat.icon;
                   return (
-                    <div key={stat.name} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div key={stat.name} className="rounded-xl bg-white p-6">
                       <div className="flex items-center gap-3">
                         <div className={`rounded-lg p-2 ${stat.color}`}>
                           <Icon className="h-6 w-6" />
@@ -471,7 +468,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Action Banner */}
-              <div className="rounded-2xl bg-gradient-to-r from-brand-600 to-brand-700 p-8 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="rounded-2xl bg-gradient-to-r from-brand-600 to-brand-700 p-8 text-white flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                   <h2 className="text-xl font-extrabold flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 shrink-0" />
@@ -483,7 +480,7 @@ export default function DashboardPage() {
                 </div>
                 <Link
                   href="/tickets/create"
-                  className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-brand-600 hover:bg-brand-50 transition-colors shrink-0 shadow-sm"
+                  className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-brand-600 hover:bg-brand-50 transition-colors shrink-0"
                 >
                   <Plus className="h-4 w-4" />
                   Submit New Ticket
@@ -491,7 +488,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Recent Tickets list */}
-              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="rounded-xl bg-white p-6">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
                   <h2 className="text-lg font-bold text-slate-800">My Recent Requests</h2>
                   <Link href="/tickets" className="text-xs font-semibold text-brand-600 hover:underline">

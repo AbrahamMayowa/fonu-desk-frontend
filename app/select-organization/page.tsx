@@ -30,15 +30,15 @@ export default function SelectOrganizationPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-lg space-y-8 bg-white p-8 sm:p-10 rounded-2xl border border-slate-200 shadow-xl shadow-slate-100/50">
+      <div className="w-full max-w-lg space-y-8 bg-white p-8 sm:p-10 rounded-2xl">
         <div className="flex flex-col items-center">
           <Image
-            src="/fonu-desk-logo-text.svg"
+            src="/fonu-desk-logo-text.png"
             alt="Fonu Desk Logo"
-            width={160}
-            height={36}
+            width={180}
+            height={40}
             priority
-            className="h-10 w-auto mb-6"
+            className="h-10 w-auto mb-6 object-contain"
           />
           <h2 className="text-2xl font-bold tracking-tight text-slate-800">
             Select your workspace

@@ -8,6 +8,33 @@ export interface ApiError {
   error: string;
 }
 
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface AttachmentItem {
+  id?: string;
+  fileName: string;
+  fileUrl: string;
+  fileType: string;
+}
+
+export interface InvitationItem {
+  id: string;
+  email: string;
+  organizationId: string;
+  roleId: string;
+  businessId?: string | null;
+  token?: string;
+  status: "PENDING" | "ACCEPTED" | "EXPIRED" | string;
+  expiresAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  role?: Role;
+}
+
 // In-memory caching for dashboards
 interface CacheEntry {
   data: any;
@@ -95,14 +122,25 @@ async function request<T>(
 
 export const apiClient = {
   auth: {
-    signup(payload: any) {
+    signup(payload: { firstName: string; lastName: string; email: string }) {
       return request<{ message: string }>("/auth/signup", {
         method: "POST",
         body: JSON.stringify(payload),
       });
     },
-    verifyEmail(payload: { email: string; code: string }) {
-      return request<{ message: string }>("/auth/verify-email", {
+    verifyEmail(payload: { email: string; code: string; password: string }) {
+      return request<{
+        message: string;
+        accessToken?: string;
+        user?: {
+          id: string;
+          email: string;
+          firstName: string;
+          lastName: string;
+          isOwner: boolean;
+          defaultOrganizationId: string | null;
+        };
+      }>("/auth/verify-email", {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -141,7 +179,7 @@ export const apiClient = {
         body: JSON.stringify({ email }),
       });
     },
-    changePassword(payload: any) {
+    changePassword(payload: { email: string; code: string; newPassword: string }) {
       return request<{ message: string }>("/auth/change-password", {
         method: "POST",
         body: JSON.stringify(payload),
@@ -150,6 +188,9 @@ export const apiClient = {
   },
 
   users: {
+    roles() {
+      return request<Role[]>("/users/roles");
+    },
     me() {
       return request<any>("/users/me");
     },
@@ -170,7 +211,18 @@ export const apiClient = {
       });
     },
     acceptInvite(payload: any) {
-      return request<{ message: string }>("/users/accept-invite", {
+      return request<{
+        message: string;
+        accessToken?: string;
+        user?: {
+          id: string;
+          email: string;
+          firstName: string;
+          lastName: string;
+          isOwner: boolean;
+          defaultOrganizationId: string | null;
+        };
+      }>("/users/accept-invite", {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -201,7 +253,7 @@ export const apiClient = {
       if (params?.page) qs.append("page", params.page.toString());
       if (params?.limit) qs.append("limit", params.limit.toString());
       const query = qs.toString() ? `?${qs.toString()}` : "";
-      return request<{ data: any[]; total: number }>("/users/invites" + query);
+      return request<{ data: InvitationItem[]; total: number }>("/users/invites" + query);
     },
     resendInvite(id: string) {
       return request<{ message: string; invitationId: string }>(`/users/invites/${id}/resend`, {
@@ -268,7 +320,8 @@ export const apiClient = {
       description: string;
       priority?: string;
       businessId?: string;
-      attachment?: { fileName: string; fileUrl: string; fileType: string };
+      attachments?: AttachmentItem[];
+      attachment?: AttachmentItem;
     }) {
       return request<any>("/tickets", {
         method: "POST",
@@ -281,6 +334,8 @@ export const apiClient = {
       customerId: string;
       priority?: string;
       businessId?: string;
+      attachments?: AttachmentItem[];
+      attachment?: AttachmentItem;
     }) {
       return request<any>("/tickets/on-behalf", {
         method: "POST",
@@ -331,6 +386,9 @@ export const apiClient = {
     },
     getHistory(id: string) {
       return request<any[]>(`/tickets/${id}/history`);
+    },
+    attachments(id: string) {
+      return request<AttachmentItem[]>(`/tickets/${id}/attachments`);
     },
     mute(id: string) {
       return request<{ message: string }>(`/tickets/${id}/mute`, {

@@ -7,9 +7,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { toast } from "sonner";
 import { useAuth } from "@/context/auth-context";
 import { apiClient, ApiError } from "@/lib/api";
-import { Mail, Lock, Loader2, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, Loader2, ArrowRight } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -22,9 +23,6 @@ function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -35,33 +33,28 @@ function LoginForm() {
     resolver: zodResolver(loginSchema),
   });
 
-  useEffect(() => {
-    // Render banner if redirected after successful email verification
-    if (searchParams.get("verified") === "true") {
-      setSuccessMsg("Email verified successfully! Please sign in to continue.");
-    }
-  }, [searchParams]);
-
   const onSubmit = async (values: LoginFormValues) => {
     setIsSubmitting(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
     try {
       const response = await apiClient.auth.login(values);
+      toast.success("Sign in successful! Loading workspace...");
       await login(response.accessToken, response.user);
     } catch (err: any) {
       const apiErr = err as ApiError;
       
       // Check if they need to verify email
       if (apiErr.statusCode === 401 && apiErr.message?.toString().toLowerCase().includes("verify")) {
-        setErrorMsg("Please verify your email address before logging in.");
+        toast.error("Please verify your email address before logging in.");
         // Store email to assist verify-email pre-fill
         sessionStorage.setItem("signup_email", values.email);
         setTimeout(() => {
           router.push("/verify-email");
-        }, 2000);
+        }, 1500);
       } else {
-        setErrorMsg(apiErr.message?.toString() || "Invalid email or password.");
+        const message = Array.isArray(apiErr.message)
+          ? apiErr.message.join(", ")
+          : apiErr.message || "Invalid email or password.";
+        toast.error(message);
       }
     } finally {
       setIsSubmitting(false);
@@ -69,15 +62,15 @@ function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md space-y-8 bg-white p-8 sm:p-10 rounded-2xl border border-slate-200 shadow-xl shadow-slate-100/50">
+    <div className="w-full max-w-md space-y-8 bg-white p-8 sm:p-10 rounded-2xl ">
       <div className="flex flex-col items-center">
         <Image
-          src="/fonu-desk-logo-text.svg"
+          src="/fonu-desk-logo-text.png"
           alt="Fonu Desk Logo"
-          width={160}
-          height={36}
+          width={180}
+          height={40}
           priority
-          className="h-10 w-auto mb-6"
+          className="h-10 w-auto mb-6 object-contain"
         />
         <h2 className="text-2xl font-bold tracking-tight text-slate-800">
           Sign in to your account
@@ -86,19 +79,6 @@ function LoginForm() {
           Enter your credentials to access your support dashboard
         </p>
       </div>
-
-      {errorMsg && (
-        <div className="rounded-lg bg-red-50 p-4 border border-red-200">
-          <p className="text-sm font-medium text-red-700">{errorMsg}</p>
-        </div>
-      )}
-
-      {successMsg && (
-        <div className="rounded-lg bg-green-50 p-4 border border-green-200 flex gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
-          <p className="text-sm font-medium text-green-700">{successMsg}</p>
-        </div>
-      )}
 
       <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
         <div>
@@ -130,6 +110,12 @@ function LoginForm() {
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
               Password
             </label>
+            <Link
+              href="/forgot-password"
+              className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+            >
+              Forgot password?
+            </Link>
           </div>
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">

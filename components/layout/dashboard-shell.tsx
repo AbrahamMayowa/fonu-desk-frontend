@@ -151,15 +151,18 @@ export const DashboardShell: React.FC<{ children: React.ReactNode }> = ({ childr
       >
         {/* Sidebar Header */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-slate-800">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2.5 my-auto leading-none">
             <Image
-              src="/fonu-desk-logo-text.svg"
+              src="/fonu-desk-logo.png"
               alt="Fonu Desk Logo"
-              width={140}
+              width={32}
               height={32}
               priority
-              className="h-8 w-auto"
+              className="h-8 w-8 object-contain shrink-0"
             />
+            <span className="text-lg font-extrabold tracking-tight text-white leading-none">
+              Fonu Desk
+            </span>
           </Link>
           <button
             className="rounded p-1 hover:bg-slate-800 lg:hidden"

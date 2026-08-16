@@ -6,15 +6,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { toast } from "sonner";
+import { useAuth } from "@/context/auth-context";
 import { apiClient, ApiError } from "@/lib/api";
 import { User, Lock, Loader2, ArrowRight, CircleAlert } from "lucide-react";
 
-const inviteSchema = z.object({
-  token: z.string().min(1, "Invitation token is missing"),
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+const inviteSchema = z
+  .object({
+    token: z.string().min(1, "Invitation token is missing"),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 type InviteFormValues = z.infer<typeof inviteSchema>;
 
@@ -22,8 +30,8 @@ function InviteForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
+  const { login } = useAuth();
 
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -38,6 +46,7 @@ function InviteForm() {
       firstName: "",
       lastName: "",
       password: "",
+      confirmPassword: "",
     },
   });
 
@@ -50,28 +59,38 @@ function InviteForm() {
 
   const onSubmit = async (values: InviteFormValues) => {
     setIsSubmitting(true);
-    setErrorMsg(null);
     try {
-      await apiClient.users.acceptInvite(values);
-      router.push("/login?verified=true"); // Re-use verification success banner
+      const { confirmPassword, ...acceptPayload } = values;
+      const response = await apiClient.users.acceptInvite(acceptPayload);
+      toast.success(response.message || "Invitation accepted successfully!");
+
+      if (response.accessToken && response.user) {
+        await login(response.accessToken, response.user);
+        router.push("/dashboard");
+      } else {
+        router.push("/login?verified=true");
+      }
     } catch (err: any) {
       const apiErr = err as ApiError;
-      setErrorMsg(apiErr.message?.toString() || "Failed to accept invitation. Token may be expired or invalid.");
+      const message = Array.isArray(apiErr.message)
+        ? apiErr.message.join(", ")
+        : apiErr.message || "Failed to accept invitation. Token may be expired or invalid.";
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="w-full max-w-md space-y-8 bg-white p-8 sm:p-10 rounded-2xl border border-slate-200 shadow-xl shadow-slate-100/50">
+    <div className="w-full max-w-md space-y-8 bg-white p-8 sm:p-10 rounded-2xl">
       <div className="flex flex-col items-center">
         <Image
-          src="/fonu-desk-logo-text.svg"
+          src="/fonu-desk-logo-text.png"
           alt="Fonu Desk Logo"
-          width={160}
-          height={36}
+          width={180}
+          height={40}
           priority
-          className="h-10 w-auto mb-6"
+          className="h-10 w-auto mb-6 object-contain"
         />
         <h2 className="text-2xl font-bold tracking-tight text-slate-800">
           Accept Invitation
@@ -87,12 +106,6 @@ function InviteForm() {
           <p className="text-sm font-medium text-amber-700">
             No invitation token detected. Please open the link sent to your email.
           </p>
-        </div>
-      )}
-
-      {errorMsg && (
-        <div className="rounded-lg bg-red-50 p-4 border border-red-200">
-          <p className="text-sm font-medium text-red-700">{errorMsg}</p>
         </div>
       )}
 
@@ -170,6 +183,30 @@ function InviteForm() {
           </div>
           {errors.password && (
             <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+            Confirm Password
+          </label>
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+              <Lock className="h-4 w-4 text-slate-400" />
+            </div>
+            <input
+              type="password"
+              {...register("confirmPassword")}
+              placeholder="••••••••"
+              className={`block w-full rounded-lg border pl-10 pr-3 py-2.5 text-sm outline-none transition-all placeholder-slate-400 ${
+                errors.confirmPassword
+                  ? "border-red-300 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  : "border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              }`}
+            />
+          </div>
+          {errors.confirmPassword && (
+            <p className="mt-1 text-xs text-red-500">{errors.confirmPassword.message}</p>
           )}
         </div>
 

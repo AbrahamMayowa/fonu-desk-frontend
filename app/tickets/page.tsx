@@ -6,6 +6,13 @@ import { useAuth } from "@/context/auth-context";
 import { apiClient } from "@/lib/api";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Search,
   Filter,
   Plus,
@@ -151,7 +158,7 @@ export default function TicketsPage() {
       )}
 
       {/* Filters Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-8 shadow-sm flex flex-col lg:flex-row lg:items-center gap-4">
+      <div className="bg-white rounded-2xl p-5 mb-8 flex flex-col lg:flex-row lg:items-center gap-4">
         {/* Search */}
         <div className="flex-1 relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -174,41 +181,49 @@ export default function TicketsPage() {
           </div>
 
           {/* Status Dropdown */}
-          <select
+          <Select
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
+            onValueChange={(val) => {
+              setStatus(val);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-600 outline-none hover:bg-slate-100 transition-colors"
           >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                Status: {s}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 w-[160px] text-xs font-semibold bg-slate-50 border-slate-200">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  Status: {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* Priority Dropdown */}
-          <select
+          <Select
             value={priority}
-            onChange={(e) => {
-              setPriority(e.target.value);
+            onValueChange={(val) => {
+              setPriority(val);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-600 outline-none hover:bg-slate-100 transition-colors"
           >
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                Priority: {p}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 w-[160px] text-xs font-semibold bg-slate-50 border-slate-200">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              {PRIORITIES.map((p) => (
+                <SelectItem key={p} value={p}>
+                  Priority: {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {/* Ticket List Table */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-6">
+      <div className="bg-white rounded-2xl overflow-hidden mb-6">
         {loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
@@ -220,10 +235,10 @@ export default function TicketsPage() {
             <p className="text-xs text-slate-400 mt-1">Try resetting search or query filters.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
+            <table className="w-full min-w-[750px] text-left text-sm border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200">
+                <tr className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 whitespace-nowrap">
                   <th className="px-6 py-4">Title</th>
                   <th className="px-6 py-4">Priority</th>
                   <th className="px-6 py-4">Status</th>

@@ -1,35 +1,34 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import { useAuth } from "@/context/auth-context";
 import { apiClient, ApiError } from "@/lib/api";
-import { Lock, Loader2, ArrowRight, RefreshCw } from "lucide-react";
+import { Lock, Loader2, ArrowRight, ArrowLeft, RefreshCw } from "lucide-react";
 
-const verifySchema = z
+const resetPasswordSchema = z
   .object({
     code: z
       .string()
-      .length(6, "Verification code must be exactly 6 digits")
+      .length(6, "Reset code must be exactly 6 digits")
       .regex(/^\d+$/, "Code must contain only numbers"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string().min(1, "Please confirm your password"),
+    newPassword: z.string().min(8, "New password must be at least 8 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your new password"),
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine((data) => data.newPassword === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
 
-type VerifyFormValues = z.infer<typeof verifySchema>;
+type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
-export default function VerifyEmailPage() {
+export default function ResetPasswordPage() {
   const router = useRouter();
-  const { login } = useAuth();
   const [email, setEmail] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -38,55 +37,44 @@ export default function VerifyEmailPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<VerifyFormValues>({
-    resolver: zodResolver(verifySchema),
+  } = useForm<ResetPasswordFormValues>({
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
       code: "",
-      password: "",
+      newPassword: "",
       confirmPassword: "",
     },
   });
 
   useEffect(() => {
-    // Load stored signup email
-    const storedEmail = sessionStorage.getItem("signup_email");
+    const storedEmail = sessionStorage.getItem("reset_email");
     if (storedEmail) {
       setEmail(storedEmail);
     }
   }, []);
 
-  const onSubmit = async (values: VerifyFormValues) => {
+  const onSubmit = async (values: ResetPasswordFormValues) => {
     if (!email) {
-      toast.error("Session expired or email missing. Please sign up again.");
-      router.push("/signup");
+      toast.error("Session expired or email missing. Please request a new password reset code.");
+      router.push("/forgot-password");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await apiClient.auth.verifyEmail({
+      await apiClient.auth.changePassword({
         email,
         code: values.code,
-        password: values.password,
+        newPassword: values.newPassword,
       });
-      sessionStorage.removeItem("signup_email");
-      toast.success("Email verified and account activated successfully!");
-
-      if (response.accessToken && response.user) {
-        await login(response.accessToken, response.user);
-        if (response.user.isOwner && !response.user.defaultOrganizationId) {
-          router.push("/create-organization");
-        } else {
-          router.push("/dashboard");
-        }
-      } else {
-        router.push("/login");
-      }
+      sessionStorage.removeItem("reset_email");
+      toast.success("Password changed successfully! Please sign in with your new password.");
+      router.push("/login");
     } catch (err: any) {
       const apiErr = err as ApiError;
       const message = Array.isArray(apiErr.message)
         ? apiErr.message.join(", ")
-        : apiErr.message || "Invalid or expired OTP verification code.";
+        : apiErr.message || "Invalid or expired reset code.";
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -95,19 +83,20 @@ export default function VerifyEmailPage() {
 
   const handleResend = async () => {
     if (!email) {
-      toast.error("Session expired or email missing. Please sign up again.");
+      toast.error("Session expired or email missing. Please request a new reset code.");
+      router.push("/forgot-password");
       return;
     }
 
     setIsResending(true);
     try {
-      const response = await apiClient.auth.resendOtp({ email });
-      toast.success(response.message || "A new verification code has been sent.");
+      const response = await apiClient.auth.forgotPassword(email);
+      toast.success(response.message || "A new password reset code has been sent.");
     } catch (err: any) {
       const apiErr = err as ApiError;
       const message = Array.isArray(apiErr.message)
         ? apiErr.message.join(", ")
-        : apiErr.message || "Failed to resend verification code.";
+        : apiErr.message || "Failed to resend reset code.";
       toast.error(message);
     } finally {
       setIsResending(false);
@@ -127,7 +116,7 @@ export default function VerifyEmailPage() {
             className="h-10 w-auto mb-6 object-contain"
           />
           <h2 className="text-2xl font-bold tracking-tight text-slate-800">
-            Verify your email & set password
+            Set new password
           </h2>
           <p className="mt-2 text-sm text-slate-500 text-center">
             Enter the 6-digit code sent to{" "}
@@ -136,14 +125,14 @@ export default function VerifyEmailPage() {
             ) : (
               "your email"
             )}{" "}
-            and set your account password
+            and choose your new password
           </p>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-              Verification Code (6 Digits)
+              Reset Code (6 Digits)
             </label>
             <input
               type="text"
@@ -163,7 +152,7 @@ export default function VerifyEmailPage() {
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-              Set Password
+              New Password
             </label>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -171,23 +160,23 @@ export default function VerifyEmailPage() {
               </div>
               <input
                 type="password"
-                {...register("password")}
+                {...register("newPassword")}
                 placeholder="••••••••"
                 className={`block w-full rounded-lg border pl-10 pr-3 py-2.5 text-sm outline-none transition-all placeholder-slate-400 ${
-                  errors.password
+                  errors.newPassword
                     ? "border-red-300 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                     : "border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                 }`}
               />
             </div>
-            {errors.password && (
-              <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>
+            {errors.newPassword && (
+              <p className="mt-1 text-xs text-red-500">{errors.newPassword.message}</p>
             )}
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-              Confirm Password
+              Confirm New Password
             </label>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -232,16 +221,16 @@ export default function VerifyEmailPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-brand-600/10 hover:bg-brand-700 transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 transition-colors disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Verifying...
+                  Updating...
                 </>
               ) : (
                 <>
-                  Confirm & Activate
+                  Reset Password
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -250,10 +239,13 @@ export default function VerifyEmailPage() {
         </form>
 
         <div className="text-center text-sm mt-6">
-          <span className="text-slate-500">Back to </span>
-          <a href="/login" className="font-semibold text-brand-600 hover:text-brand-700">
-            Sign In
-          </a>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1.5 font-semibold text-brand-600 hover:text-brand-700"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Sign In
+          </Link>
         </div>
       </div>
     </div>

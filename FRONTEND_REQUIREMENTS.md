@@ -199,16 +199,14 @@ Users can switch their active organization context at any point using the top na
 - **Payload**:
   ```json
   {
-    "email": "owner@company.com",
-    "password": "strongPassword123!",
     "firstName": "John",
-    "lastName": "Doe"
+    "lastName": "Doe",
+    "email": "owner@company.com"
   }
   ```
 - **Validation**:
-  - `email`: Must be a valid email format.
-  - `password`: Must be a string with a minimum length of 8 characters.
   - `firstName`, `lastName`: Must be non-empty strings.
+  - `email`: Must be a valid email format.
 - **Response Scenarios**:
   - **`201 Created`**: Owner registration successful.
     ```json
@@ -218,21 +216,23 @@ Users can switch their active organization context at any point using the top na
     ```json
     { "statusCode": 409, "message": "Email already in use", "error": "Conflict" }
     ```
-- **Next Step**: Store email in temporary local memory, redirect user to verification screen to input their 6-digit OTP code.
+- **Next Step**: Store email in temporary local memory, redirect user to verification screen to input their 6-digit OTP code and set their password.
 
 #### `POST /auth/verify-email`
-- **Purpose**: Verifies email address using the code sent via email.
+- **Purpose**: Verifies email address using the code sent via email and sets user password.
 - **Headers**: None
 - **Payload**:
   ```json
   {
     "email": "owner@company.com",
-    "code": "583920"
+    "code": "583920",
+    "password": "strongPassword123!"
   }
   ```
 - **Validation**:
   - `email`: Must be valid email.
   - `code`: Must be a numeric string of length exactly 6.
+  - `password`: Must be a non-empty string with a minimum length of 8 characters.
 - **Response Scenarios**:
   - **`200 OK`**:
     ```json

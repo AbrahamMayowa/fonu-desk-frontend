@@ -8,18 +8,16 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import { useAuth } from "@/context/auth-context";
 import { apiClient, ApiError } from "@/lib/api";
-import { Building, ArrowLeft, Loader2, Plus } from "lucide-react";
+import { Mail, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 
-const orgSchema = z.object({
-  name: z.string().min(5, "Organization name must be at least 5 characters"),
+const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email address"),
 });
 
-type OrgFormValues = z.infer<typeof orgSchema>;
+type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
-export default function CreateOrganizationPage() {
-  const { user, organizations, switchOrg, refreshOrgs } = useAuth();
+export default function ForgotPasswordPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -27,30 +25,30 @@ export default function CreateOrganizationPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<OrgFormValues>({
-    resolver: zodResolver(orgSchema),
+  } = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: "",
+    },
   });
 
-  const onSubmit = async (values: OrgFormValues) => {
+  const onSubmit = async (values: ForgotPasswordFormValues) => {
     setIsSubmitting(true);
     try {
-      const newOrg = await apiClient.organizations.create(values);
-      toast.success(`Organization "${newOrg.name || values.name}" registered successfully!`);
-      await refreshOrgs();
-      // Immediately switch context to the newly created organization
-      await switchOrg(newOrg.id);
+      const response = await apiClient.auth.forgotPassword(values.email);
+      toast.success(response.message || "If the email exists, a reset code has been sent.");
+      sessionStorage.setItem("reset_email", values.email);
+      router.push("/reset-password");
     } catch (err: any) {
       const apiErr = err as ApiError;
       const message = Array.isArray(apiErr.message)
         ? apiErr.message.join(", ")
-        : apiErr.message || "Organization registration failed.";
+        : apiErr.message || "Failed to process request. Please try again.";
       toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const hasWorkspaces = organizations.length > 0;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
@@ -65,68 +63,66 @@ export default function CreateOrganizationPage() {
             className="h-10 w-auto mb-6 object-contain"
           />
           <h2 className="text-2xl font-bold tracking-tight text-slate-800">
-            Create an Organization
+            Reset your password
           </h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Setup your workspace domain to manage support tickets
+          <p className="mt-2 text-sm text-slate-500 text-center">
+            Enter your account email address and we'll send you an OTP code to reset your password.
           </p>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-              Organization Name
+              Email Address
             </label>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <Building className="h-4 w-4 text-slate-400" />
+                <Mail className="h-4 w-4 text-slate-400" />
               </div>
               <input
-                type="text"
-                {...register("name")}
-                placeholder="Google LLC"
+                type="email"
+                {...register("email")}
+                placeholder="owner@company.com"
                 className={`block w-full rounded-lg border pl-10 pr-3 py-2.5 text-sm outline-none transition-all placeholder-slate-400 ${
-                  errors.name
+                  errors.email
                     ? "border-red-300 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                     : "border-slate-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                 }`}
               />
             </div>
-            {errors.name && (
-              <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>
+            {errors.email && (
+              <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>
             )}
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-brand-600/10 hover:bg-brand-700 transition-colors disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 transition-colors disabled:opacity-50"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Creating...
+                Sending reset code...
               </>
             ) : (
               <>
-                <Plus className="h-4 w-4" />
-                Create Workspace
+                Send Reset Code
+                <ArrowRight className="h-4 w-4" />
               </>
             )}
           </button>
         </form>
 
-        {hasWorkspaces && (
-          <div className="text-center mt-6 border-t border-slate-100 pt-6">
-            <Link
-              href="/select-organization"
-              className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-brand-600 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to selection
-            </Link>
-          </div>
-        )}
+        <div className="text-center text-sm mt-6">
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1.5 font-semibold text-brand-600 hover:text-brand-700"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Sign In
+          </Link>
+        </div>
       </div>
     </div>
   );
