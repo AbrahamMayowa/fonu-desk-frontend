@@ -1,26 +1,42 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sherika), sans-serif;
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Brand Colors */
+  --color-brand-50: #EFF6FF;
+  --color-brand-100: #DBEAFE;
+  --color-brand-500: #3B82F6;
+  --color-brand-600: #2563EB; /* Primary Brand */
+  --color-brand-700: #1D4ED8;
+  --color-brand-900: #1E3A8A;
+
+  /* Surface Colors */
+  --color-surface-app: #F8FAFC;
+  --color-surface-card: #FFFFFF;
+  --color-surface-sidebar: #0F172A;
+
+  /* Ticket Status Colors */
+  --color-ticket-open: #2563EB;
+  --color-ticket-open-bg: #EFF6FF;
+  --color-ticket-urgent: #DC2626;
+  --color-ticket-urgent-bg: #FEF2F2;
+  --color-ticket-pending: #D97706;
+  --color-ticket-pending-bg: #FFFBEB;
+  --color-ticket-resolved: #16A34A;
+  --color-ticket-resolved-bg: #F0FDF4;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-surface-app);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
 }

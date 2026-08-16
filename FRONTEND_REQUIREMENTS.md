@@ -440,7 +440,7 @@ Users can switch their active organization context at any point using the top na
 - **Validation**:
   - `email`: Valid email.
   - `roleId`: Valid UUID.
-  - `businessId`: Optional, must be valid UUID if provided.
+  - `businessId`: Optional, but **required** if the invited user's role is `CUSTOMER`.
 - **Response Scenarios**:
   - **`201 Created`**:
     ```json
@@ -453,6 +453,51 @@ Users can switch their active organization context at any point using the top na
     ```json
     { "statusCode": 409, "message": "User is already a member of this organization", "error": "Conflict" }
     ```
+
+#### `GET /users/invites`
+- **Purpose**: Fetch a paginated list of all invitations sent within the active organization.
+- **Headers**: `Authorization: Bearer <token>`
+- **Permissions**: `OWNER`, `ADMIN`
+- **Query Params**:
+  - `page`: `Number (Optional, Default: 1)` - Page offset
+  - `limit`: `Number (Optional, Default: 10)` - Page size
+- **Response**:
+  - **`200 OK`**:
+    ```json
+    {
+      "data": [
+        {
+          "id": "invitation-uuid-string",
+          "email": "user@example.com",
+          "organizationId": "org-uuid-string",
+          "roleId": "role-uuid-string",
+          "businessId": "business-uuid-string",
+          "status": "PENDING",
+          "expiresAt": "2026-08-23T05:25:00.000Z",
+          "createdAt": "2026-08-16T05:25:00.000Z",
+          "updatedAt": "2026-08-16T05:25:00.000Z"
+        }
+      ],
+      "total": 1
+    }
+    ```
+
+#### `POST /users/invites/:id/resend`
+- **Purpose**: Generate a new token/expiry date and resend the email for a pending/expired invitation.
+- **Headers**: `Authorization: Bearer <token>`
+- **Permissions**: `OWNER`, `ADMIN`
+- **Path Variables**:
+  - `id`: `String (UUID, Required)` - The invitation ID
+- **Response Scenarios**:
+  - **`200 OK`**:
+    ```json
+    {
+      "message": "Invitation resent successfully",
+      "invitationId": "invitation-uuid-string"
+    }
+    ```
+  - **`404 Not Found`**: Invitation not found in active organization.
+  - **`409 Conflict`**: Invitation already accepted.
 
 #### `POST /users/accept-invite`
 - **Purpose**: Accept invite, register account name, and setup password.
@@ -617,9 +662,9 @@ Users can switch their active organization context at any point using the top na
   {
     "title": "Database Sync Failure",
     "description": "Customer called reporting sync lock.",
-    "priority": "URGENT",
-    "businessId": "business-uuid-123",
-    "customerId": "customer-user-uuid-999"
+    "customerId": "customer-user-uuid-999",
+    "priority": "LOW | MEDIUM | HIGH | URGENT (Optional)",
+    "businessId": "business-uuid-123 (Optional)"
   }
   ```
 - **Response**: `201 Created` with the created ticket object.
@@ -977,6 +1022,66 @@ All statistics are scoped dynamically by the backend using the active user's cur
   - `notificationIds`: Non-empty array of valid UUID strings.
 - **Response**:
   - **`200 OK`**: `{ "message": "Notifications marked as read successfully" }`
+
+---
+
+### 4.8 Businesses Modules (`/businesses`)
+
+#### `POST /businesses`
+- **Purpose**: Create a new business scoped to the active organization.
+- **Headers**: `Authorization: Bearer <token>`
+- **Permissions**: `OWNER`, `ADMIN`, `SUPPORT`
+- **Payload**:
+  ```json
+  {
+    "name": "Acme Corporation",
+    "industry": "Technology"
+  }
+  ```
+- **Response Scenarios**:
+  - **`201 Created`**:
+    ```json
+    {
+      "id": "e6f4a567-24da-44cf-81c8-c6a66a1a1f59",
+      "name": "Acme Corporation",
+      "industry": "Technology",
+      "ownerId": "f784a32b-e3c2-482a-a9a3-a003112d7c01",
+      "organizationId": "d54d193d-4c3e-4b21-86c5-2856a938c1ea",
+      "createdAt": "2026-08-16T05:35:30.000Z",
+      "updatedAt": "2026-08-16T05:35:30.000Z"
+    }
+    ```
+  - **`400 Bad Request`**: Validation failed.
+  - **`409 Conflict`**: A business with the same name already exists in the active organization.
+
+#### `GET /businesses`
+- **Purpose**: Get all businesses scoped to the active organization.
+- **Headers**: `Authorization: Bearer <token>`
+- **Permissions**: `OWNER`, `ADMIN`, `SUPPORT`
+- **Query Params**:
+  - `search` (string, optional) - filter by business name.
+  - `page` (number, optional, default: 1) - page offset.
+  - `limit` (number, optional, default: 10) - number of records per page.
+- **Response**:
+  - **`200 OK`**:
+    ```json
+    {
+      "data": [
+        {
+          "id": "e6f4a567-24da-44cf-81c8-c6a66a1a1f59",
+          "name": "Acme Corporation",
+          "industry": "Technology",
+          "ownerId": "f784a32b-e3c2-482a-a9a3-a003112d7c01",
+          "organizationId": "d54d193d-4c3e-4b21-86c5-2856a938c1ea",
+          "createdAt": "2026-08-16T05:35:30.000Z",
+          "updatedAt": "2026-08-16T05:35:30.000Z"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "limit": 10
+    }
+    ```
 
 ---
 
