@@ -1,9 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import Cookies from "js-cookie";
 import { useRouter, usePathname } from "next/navigation";
-import { apiClient, clearDashboardCache } from "@/lib/api";
+import { apiClient, clearDashboardCache, getAccessToken, setAccessToken, removeAccessToken } from "@/lib/api";
 
 export interface UserProfile {
   id: string;
@@ -77,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const pathname = usePathname();
 
   const handleLogoutState = () => {
-    Cookies.remove("accessToken");
+    removeAccessToken();
     setUser(null);
     setToken(null);
     setRoles([]);
@@ -88,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loadSession = async () => {
-    const currentToken = Cookies.get("accessToken");
+    const currentToken = getAccessToken();
     if (!currentToken) {
       handleLogoutState();
       setIsLoading(false);
@@ -169,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [token, pathname, isLoading, organizations, activeOrgId, user]);
 
   const login = async (newToken: string, profile: UserProfile) => {
-    Cookies.set("accessToken", newToken, { expires: 7 }); // Store token in cookies for 7 days
+    setAccessToken(newToken);
     setToken(newToken);
     setUser(profile);
 
@@ -221,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const response = await apiClient.auth.switchOrganization({ organizationId: orgId });
-      Cookies.set("accessToken", response.accessToken, { expires: 7 });
+      setAccessToken(response.accessToken);
       clearDashboardCache();
       
       // Perform a clean reload of application state to prevent any data leak

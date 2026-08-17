@@ -2,6 +2,34 @@ import Cookies from "js-cookie";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+export function getAccessToken(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const sessionToken = sessionStorage.getItem("accessToken");
+  if (sessionToken) {
+    return sessionToken;
+  }
+  const cookieToken = Cookies.get("accessToken");
+  if (cookieToken) {
+    sessionStorage.setItem("accessToken", cookieToken);
+    return cookieToken;
+  }
+  return undefined;
+}
+
+export function setAccessToken(token: string) {
+  if (typeof window !== "undefined") {
+    sessionStorage.setItem("accessToken", token);
+  }
+  Cookies.set("accessToken", token, { expires: 7 });
+}
+
+export function removeAccessToken() {
+  if (typeof window !== "undefined") {
+    sessionStorage.removeItem("accessToken");
+  }
+  Cookies.remove("accessToken");
+}
+
 export interface ApiError {
   statusCode: number;
   message: string | string[];
@@ -54,7 +82,7 @@ async function request<T>(
   options: RequestInit = {},
   bypassCache = false
 ): Promise<T> {
-  const token = Cookies.get("accessToken");
+  const token = getAccessToken();
   const headers = new Headers(options.headers || {});
 
   if (token) {
@@ -83,7 +111,7 @@ async function request<T>(
 
   if (!response.ok) {
     if (response.status === 401 && !path.startsWith("/auth")) {
-      Cookies.remove("accessToken");
+      removeAccessToken();
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }
